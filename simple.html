@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSRM | Visual Mode</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Кнопка переключения режимов */
+        .mode-switch {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            text-decoration: none;
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            transition: 0.3s;
+            background: rgba(0,0,0,0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .mode-switch:hover { background: #00d4ff; color: #000; }
+
+        /* Упрощенная панель (внизу) */
+        #controls-simple {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 10;
+        }
+
+        .slider-group { display: flex; align-items: center; gap: 15px; }
+        .icon { width: 30px; font-size: 1.2rem; text-align: center; }
+        .label { width: 80px; font-size: 0.9rem; font-weight: bold; color: #ccc; }
+        
+        input[type=range] {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.2);
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+            transition: 0.2s;
+        }
+        input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); }
+
+        /* Статус по центру */
+        #status-container {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none; /* Чтобы можно было крутить модель сквозь текст */
+            z-index: 5;
+        }
+        #main-status { font-size: 2.5rem; font-weight: 300; letter-spacing: 5px; text-transform: uppercase; text-shadow: 0 0 20px rgba(255,255,255,0.3); }
+        #sub-status { font-size: 1rem; color: #aaa; margin-top: 5px; }
+
+        /* Цвета статусов */
+        .status-good { color: #00ff88; }
+        .status-warn { color: #ffae00; }
+        .status-bad { color: #ff4757; }
+
+        #canvas-container { width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="mode-switch">← Expert Mode</a>
+
+    <div id="status-container">
+        <div id="main-status" class="status-good">HARMONY</div>
+        <div id="sub-status">Your Relationship Crystal is stable</div>
+    </div>
+
+    <div id="controls-simple">
+        <div class="slider-group">
+            <div class="icon">💰</div>
+            <div class="label">Resources</div>
+            <input type="range" min="0.1" max="1" step="0.01" value="0.7" oninput="updateAll('x', this.value)">
+        </div>
+        <div class="slider-group">
+            <div class="icon">🏠</div>
+            <div class="label">Stability</div>
+            <input type="range" min="0.1" max="1" step="0.01" value="0.7" oninput="updateAll('y', this.value)">
+        </div>
+        <div class="slider-group">
+            <div class="icon">🚀</div>
+            <div class="label">Growth</div>
+            <input type="range" min="0.1" max="1" step="0.01" value="0.7" oninput="updateAll('z', this.value)">
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // === Данные ===
+        // В упрощенном режиме мы немного "читерим" для визуализации:
+        // Ползунок Resources меняет X у обоих партнеров сразу, и т.д.
+        // Это чтобы "домохозяйка" видела эффект, не двигая 9 ползунков.
+        const state = {
+            v1: { x: 0.7, y: 0.7, z: 0.7 },
+            v2: { x: 0.7, y: 0.7, z: 0.7 },
+            w:  { x: 0.8, y: 0.8, z: 0.8 } 
+        };
+
+        // === Сцена ===
+        const scene = new THREE.Scene();
+        // Красивый туман для глубины
+        scene.fog = new THREE.FogExp2(0x000000, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(4, 3, 5);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // === Освещение (Кинематографичное) ===
+        const ambientLight = new THREE.AmbientLight(0x404040, 1);
+        scene.add(ambientLight);
+
+        // Синий свет слева
+        const spotLight1 = new THREE.SpotLight(0x00d4ff, 5);
+        spotLight1.position.set(-5, 5, 0);
+        spotLight1.castShadow = true;
+        scene.add(spotLight1);
+
+        // Теплый свет справа
+        const spotLight2 = new THREE.SpotLight(0xffae00, 5);
+        spotLight2.position.set(5, -2, 2);
+        scene.add(spotLight2);
+
+        // Розовый контровой свет
+        const spotLight3 = new THREE.SpotLight(0xbd00ff, 3);
+        spotLight3.position.set(0, 5, -5);
+        scene.add(spotLight3);
+
+        let crystalMesh = null;
+
+        // === Математика объема ===
+        function calculateVolume(v1, v2, w) {
+            const cx = v1.y * v2.z - v1.z * v2.y;
+            const cy = v1.z * v2.x - v1.x * v2.z;
+            const cz = v1.x * v2.y - v1.y * v2.x;
+            const dot = cx * w.x + cy * w.y + cz * w.z;
+            return Math.abs(dot) / 6.0;
+        }
+
+        // === Создание Кристалла ===
+        function updateCrystal() {
+            if (crystalMesh) scene.remove(crystalMesh);
+
+            // Вершины
+            const vertices = [
+                0, 0, 0,
+                state.v1.x, state.v1.y, state.v1.z,
+                state.v2.x, state.v2.y, state.v2.z,
+                state.w.x,  state.w.y,  state.w.z
+            ];
+
+            const indices = [
+                0, 2, 1, 0, 3, 2, 0, 1, 3, 1, 2, 3
+            ];
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals(); // Важно для бликов!
+
+            // Расчет статуса
+            const vol = calculateVolume(state.v1, state.v2, state.w);
+            let colorHex = 0xffffff;
+            let statusText = "HARMONY";
+            let statusClass = "status-good";
+            let subText = "Crystal is shining bright";
+
+            // Логика "поломки" кристалла
+            if (vol < 0.05) {
+                colorHex = 0xffae00; // Желтеет
+                statusText = "FADING";
+                statusClass = "status-warn";
+                subText = "Adding energy needed...";
+            }
+            if (vol < 0.02) {
+                colorHex = 0xff0000; // Краснеет
+                statusText = "CRITICAL";
+                statusClass = "status-bad";
+                subText = "Structure collapsing!";
+            }
+
+            // Обновляем текст
+            const mainStatus = document.getElementById('main-status');
+            mainStatus.innerText = statusText;
+            mainStatus.className = statusClass;
+            document.getElementById('sub-status').innerText = subText;
+
+            // Материал "Стекло/Кристалл"
+            const material = new THREE.MeshPhysicalMaterial({
+                color: colorHex,
+                metalness: 0.1,
+                roughness: 0.1,
+                transmission: 0.6, // Прозрачность стекла
+                thickness: 1.5, // Толщина преломления
+                clearcoat: 1.0, // Лак сверху
+                clearcoatRoughness: 0.1,
+                emissive: colorHex,
+                emissiveIntensity: vol < 0.02 ? 0.5 : 0.1, // Светится если критично
+            });
+
+            crystalMesh = new THREE.Mesh(geometry, material);
+            scene.add(crystalMesh);
+        }
+
+        // === Упрощенное обновление ===
+        // Двигаем сразу все вектора по одной оси, чтобы форма менялась симметрично и красиво
+        window.updateAll = function(axis, val) {
+            const numVal = parseFloat(val);
+            // Немного рандомизируем, чтобы вектора не слипались (иначе объем будет 0)
+            state.v1[axis] = numVal; 
+            state.v2[axis] = numVal * 0.9; // Чуть меньше для Partner 2
+            state.w[axis]  = numVal * 1.1; // Чуть больше для Synergy
+            
+            updateCrystal();
+        };
+
+        // Анимация
+        function animate() {
+            requestAnimationFrame(animate);
+            if(crystalMesh) {
+                crystalMesh.rotation.y += 0.005; // Медленное вращение
+                crystalMesh.rotation.x = Math.sin(Date.now() * 0.001) * 0.1; // Легкое покачивание
+            }
+            renderer.render(scene, camera);
+        }
+
+        updateCrystal();
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
