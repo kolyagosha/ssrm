@@ -109,6 +109,7 @@
             text-transform: uppercase;
             color: #fff;
             text-shadow: 0 0 30px rgba(255,255,255,0.3);
+            transition: all 0.5s ease;
         }
         #status-desc {
             font-size: 0.9rem;
@@ -155,10 +156,12 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
         // === 1. Сцена и Камера ===
         const scene = new THREE.Scene();
-        // Темный фон но без тумана, чтобы звезды были четче
         scene.background = new THREE.Color(0x050505);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -172,144 +175,223 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
+        // Bloom эффект для сияния
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.8, 0.4, 0.85);
+        composer.addPass(bloomPass);
+
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.enableZoom = false; // Чтобы не ломать композицию
+        controls.enableZoom = false;
 
         // === 2. Свет (Драматичный) ===
-        const ambientLight = new THREE.AmbientLight(0x222222); 
+        const ambientLight = new THREE.AmbientLight(0x333333); 
         scene.add(ambientLight);
 
-        // Главный прожектор сверху (Белый)
-        const spotLight = new THREE.SpotLight(0xffffff, 10);
+        // Главный прожектор сверху
+        const spotLight = new THREE.SpotLight(0xffffff, 15);
         spotLight.position.set(0, 10, 0);
-        spotLight.angle = Math.PI / 6;
-        spotLight.penumbra = 1;
+        spotLight.angle = Math.PI / 5;
+        spotLight.penumbra = 0.8;
         spotLight.castShadow = true;
         scene.add(spotLight);
 
         // Цветные огни для бликов на гранях
-        const redLight = new THREE.PointLight(0xff0044, 5);
+        const redLight = new THREE.PointLight(0xff0044, 8);
         redLight.position.set(-5, 2, 5);
         scene.add(redLight);
 
-        const blueLight = new THREE.PointLight(0x0088ff, 5);
+        const blueLight = new THREE.PointLight(0x0088ff, 8);
         blueLight.position.set(5, -2, 5);
         scene.add(blueLight);
 
-        const goldLight = new THREE.PointLight(0xffaa00, 3);
+        const goldLight = new THREE.PointLight(0xffaa00, 6);
         goldLight.position.set(0, 5, -5);
         scene.add(goldLight);
 
-        // === 3. Создание "Алмаза" (Тетраэдр с физикой) ===
-        // Материал: Реалистичное стекло/алмаз
+        // === 3. Создание "Алмаза" (Настоящая огранка) ===
         const diamondMaterial = new THREE.MeshPhysicalMaterial({
             color: 0xffffff,
-            metalness: 0.1,
-            roughness: 0.05,
-            transmission: 1.0,  // Полная прозрачность (стекло)
-            thickness: 2.0,     // Толщина преломления
-            ior: 2.417,         // Index of Refraction (Алмаз)
-            clearcoat: 1.0,     // Лак
+            metalness: 0.0,
+            roughness: 0.0,
+            transmission: 0.95,
+            thickness: 1.5,
+            ior: 2.417,
+            clearcoat: 1.0,
             clearcoatRoughness: 0.0,
-            attenuationColor: new THREE.Color(0xffffff), // Цвет внутри
+            attenuationColor: new THREE.Color(0xffffff),
             attenuationDistance: 0.5,
+            envMapIntensity: 1.5
         });
 
-        // Внутреннее ядро (чтобы оно светилось изнутри)
+        // Внутреннее ядро с эффектом пульсации
         const coreMaterial = new THREE.MeshBasicMaterial({
             color: 0x00ff88,
             transparent: true,
-            opacity: 0.5,
-            wireframe: true
+            opacity: 0.6,
+            wireframe: false
         });
 
         let diamondMesh = null;
         let coreMesh = null;
+        let haloMesh = null;
 
-        // Звездная пыль (частицы вокруг)
-        const particlesGeometry = new THREE.BufferGeometry();
-        const particlesCount = 300;
-        const posArray = new Float32Array(particlesCount * 3);
-        for(let i = 0; i < particlesCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * 15;
+        // Создаём настоящий бриллиант с огранкой
+        function createDiamondGeometry(v1, v2, w) {
+            const vertices = [];
+            const indices = [];
+            
+            // Центр
+            const origin = new THREE.Vector3(0, 0, 0);
+            
+            // Основные вершины от векторов
+            const p1 = new THREE.Vector3(v1.x, v1.y, v1.z);
+            const p2 = new THREE.Vector3(v2.x, v2.y, v2.z);
+            const p3 = new THREE.Vector3(w.x, w.y, w.z);
+            
+            // Центр масс верхних точек (корона)
+            const center = new THREE.Vector3()
+                .add(p1)
+                .add(p2)
+                .add(p3)
+                .divideScalar(3);
+            
+            // Apex (верхняя точка бриллианта) - выше центра
+            const apex = center.clone().multiplyScalar(1.4);
+            
+            // Culet (нижняя точка бриллианта) - противоположно центру
+            const culet = center.clone().multiplyScalar(-0.6);
+            
+            // Промежуточные точки для огранки
+            const mid1 = new THREE.Vector3().lerpVectors(origin, p1, 0.5);
+            const mid2 = new THREE.Vector3().lerpVectors(origin, p2, 0.5);
+            const mid3 = new THREE.Vector3().lerpVectors(origin, p3, 0.5);
+            
+            // Собираем все вершины
+            const points = [
+                origin,  // 0
+                p1,      // 1
+                p2,      // 2
+                p3,      // 3
+                apex,    // 4
+                culet,   // 5
+                mid1,    // 6
+                mid2,    // 7
+                mid3     // 8
+            ];
+            
+            // Конвертируем в массив
+            points.forEach(p => vertices.push(p.x, p.y, p.z));
+            
+            // Грани короны (верхняя часть)
+            indices.push(4,1,6, 4,6,7, 4,7,2, 4,2,8, 4,8,3, 4,3,6, 4,6,1);
+            
+            // Грани павильона (нижняя часть)
+            indices.push(5,6,1, 5,7,6, 5,2,7, 5,8,2, 5,3,8, 5,6,3, 5,1,6);
+            
+            // Пояс (соединение короны и павильона)
+            indices.push(1,2,6, 2,7,6, 2,3,7, 3,8,7, 3,1,8, 1,6,8);
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+            
+            return geometry;
         }
+
+        // Звездная пыль (частицы вокруг) - больше и красивее
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 800;
+        const posArray = new Float32Array(particlesCount * 3);
+        const colorArray = new Float32Array(particlesCount * 3);
+        const sizeArray = new Float32Array(particlesCount);
+        
+        for(let i = 0; i < particlesCount; i++) {
+            posArray[i * 3] = (Math.random() - 0.5) * 20;
+            posArray[i * 3 + 1] = (Math.random() - 0.5) * 20;
+            posArray[i * 3 + 2] = (Math.random() - 0.5) * 20;
+            
+            // Разные цвета для звёзд
+            const color = new THREE.Color();
+            color.setHSL(Math.random() * 0.3 + 0.5, 1.0, 0.5 + Math.random() * 0.3);
+            colorArray[i * 3] = color.r;
+            colorArray[i * 3 + 1] = color.g;
+            colorArray[i * 3 + 2] = color.b;
+            
+            sizeArray[i] = Math.random() * 0.1 + 0.02;
+        }
+        
         particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+        particlesGeometry.setAttribute('size', new THREE.BufferAttribute(sizeArray, 1));
+        
         const particlesMaterial = new THREE.PointsMaterial({
-            size: 0.05,
-            color: 0x00d4ff,
+            size: 0.08,
+            vertexColors: true,
             transparent: true,
             opacity: 0.8,
-            blending: THREE.AdditiveBlending
+            blending: THREE.AdditiveBlending,
+            sizeAttenuation: true
         });
         const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
         scene.add(particlesMesh);
-
 
         // === 4. Логика Обновления ===
         function updateGeometry(val1, val2, val3) {
             if (diamondMesh) scene.remove(diamondMesh);
             if (coreMesh) scene.remove(coreMesh);
+            if (haloMesh) scene.remove(haloMesh);
 
-            // МАТЕМАТИКА: 
-            // Каждый ползунок влияет на СВОЙ вектор, создавая уникальную форму
-            // V1 (Partner 1) тянет вправо и вперед
+            // Векторы с улучшенной геометрией
             const v1 = { 
                 x: val1 * 1.2, 
-                y: val1 * 0.2, 
-                z: val1 * 0.3 
+                y: val1 * 0.3, 
+                z: val1 * 0.4 
             };
             
-            // V2 (Partner 2) тянет влево и вперед
             const v2 = { 
-                x: val2 * -0.5, 
-                y: val2 * 1.0, 
-                z: val2 * 0.4 
+                x: val2 * -0.6, 
+                y: val2 * 1.1, 
+                z: val2 * 0.3 
             };
             
-            // Synergy тянет вверх и вглубь
             const w = { 
-                x: val3 * 0.1, 
-                y: val3 * 0.2, 
-                z: val3 * 1.5 
+                x: val3 * 0.2, 
+                y: val3 * 0.3, 
+                z: val3 * 1.6 
             };
 
-            const vertices = [
-                0, 0, 0,           // 0: Origin
-                v1.x, v1.y, v1.z,  // 1: P1
-                v2.x, v2.y, v2.z,  // 2: P2
-                w.x, w.y, w.z      // 3: Synergy
-            ];
+            const geometry = createDiamondGeometry(v1, v2, w);
 
-            const indices = [
-                0, 2, 1, // Основание 1
-                0, 3, 2, // Основание 2
-                0, 1, 3, // Основание 3
-                1, 2, 3  // Лицевая грань
-            ];
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            geometry.setIndex(indices);
-            geometry.computeVertexNormals();
-
-            // Создаем Алмаз
+            // Создаём Алмаз
             diamondMesh = new THREE.Mesh(geometry, diamondMaterial);
             diamondMesh.castShadow = true;
             diamondMesh.receiveShadow = true;
             
-            // Создаем Ядро (чуть меньше алмаза)
-            const coreGeometry = geometry.clone();
-            coreGeometry.scale(0.6, 0.6, 0.6);
+            // Создаём Ядро (энергетический шар внутри)
+            const coreGeometry = new THREE.IcosahedronGeometry(0.15, 1);
             coreMesh = new THREE.Mesh(coreGeometry, coreMaterial);
-
-            // Группировка для вращения
             diamondMesh.add(coreMesh);
+            
+            // Создаём светящееся гало вокруг бриллианта
+            const haloGeometry = geometry.clone();
+            haloGeometry.scale(1.15, 1.15, 1.15);
+            const haloMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00d4ff,
+                transparent: true,
+                opacity: 0.1,
+                side: THREE.BackSide,
+                blending: THREE.AdditiveBlending
+            });
+            haloMesh = new THREE.Mesh(haloGeometry, haloMaterial);
+            diamondMesh.add(haloMesh);
+            
             scene.add(diamondMesh);
 
-            // Рассчитываем объем для статуса
-            // (Упрощенная формула объема тетраэдра)
+            // Расчет объема для статуса
             const vol = Math.abs(
                 (v1.y*v2.z - v1.z*v2.y)*w.x + 
                 (v1.z*v2.x - v1.x*v2.z)*w.y + 
@@ -323,21 +405,31 @@
             const title = document.getElementById('status-title');
             const desc = document.getElementById('status-desc');
             
+            // Динамически меняем bloom в зависимости от состояния
             if (vol > 0.08) {
                 title.innerText = "BRILLIANT";
-                title.style.color = "#00ff88"; // Green
+                title.style.color = "#00ff88";
+                title.style.textShadow = "0 0 40px rgba(0, 255, 136, 0.8)";
                 desc.innerText = "Relationship is shining bright";
                 coreMaterial.color.setHex(0x00ff88);
+                haloMesh.material.color.setHex(0x00ff88);
+                bloomPass.strength = 1.2;
             } else if (vol > 0.03) {
                 title.innerText = "STABLE";
-                title.style.color = "#00d4ff"; // Blue
+                title.style.color = "#00d4ff";
+                title.style.textShadow = "0 0 40px rgba(0, 212, 255, 0.8)";
                 desc.innerText = "Good balance, potential to grow";
                 coreMaterial.color.setHex(0x00d4ff);
+                haloMesh.material.color.setHex(0x00d4ff);
+                bloomPass.strength = 0.9;
             } else {
                 title.innerText = "FRAGILE";
-                title.style.color = "#ff4757"; // Red
+                title.style.color = "#ff4757";
+                title.style.textShadow = "0 0 40px rgba(255, 71, 87, 0.8)";
                 desc.innerText = "Warning: Volume is critically low";
                 coreMaterial.color.setHex(0xff4757);
+                haloMesh.material.color.setHex(0xff4757);
+                bloomPass.strength = 0.6;
             }
         }
 
@@ -366,20 +458,37 @@
         updateGeometry(0.7, 0.7, 0.8);
 
         // === 6. Анимация ===
+        let time = 0;
         function animate() {
             requestAnimationFrame(animate);
+            time += 0.01;
             
             if (diamondMesh) {
                 // Медленное, величественное вращение
-                diamondMesh.rotation.y += 0.005; 
-                diamondMesh.rotation.x = Math.sin(Date.now() * 0.0005) * 0.2;
+                diamondMesh.rotation.y += 0.003; 
+                diamondMesh.rotation.x = Math.sin(time * 0.5) * 0.15;
+                
+                // Пульсация ядра
+                if (coreMesh) {
+                    const pulse = 1 + Math.sin(time * 2) * 0.1;
+                    coreMesh.scale.set(pulse, pulse, pulse);
+                    coreMesh.rotation.y += 0.02;
+                }
+                
+                // Дыхание гало
+                if (haloMesh) {
+                    const breath = 1.15 + Math.sin(time * 1.5) * 0.05;
+                    haloMesh.scale.set(breath, breath, breath);
+                    haloMesh.material.opacity = 0.1 + Math.sin(time * 2) * 0.05;
+                }
             }
 
-            // Вращение частиц в другую сторону
-            particlesMesh.rotation.y -= 0.001;
+            // Вращение частиц в разные стороны для глубины
+            particlesMesh.rotation.y -= 0.0005;
+            particlesMesh.rotation.x += 0.0002;
 
             controls.update();
-            renderer.render(scene, camera);
+            composer.render();
         }
 
         animate();
@@ -389,6 +498,7 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
 </body>
