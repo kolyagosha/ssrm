@@ -266,7 +266,7 @@
             drawScene();
         };
 
-        function animate() { requestAnimationFrame(animate); scene.rotation.y += 0.001; renderer.render(scene, camera); }
+        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
         drawScene(); animate();
         window.onresize = () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
     </script>
