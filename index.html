@@ -266,7 +266,23 @@
             drawScene();
         };
 
-        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
+        function animate() { requestAnimationFrame(animate); 
+                            function animate() { 
+    requestAnimationFrame(animate); 
+    
+    // Вращаем только тетраэдр, не всю сцену
+    if(tetraMesh) {
+        tetraMesh.rotation.y += 0.002;
+        tetraMesh.rotation.x += 0.001;
+    }
+    if(edgesMesh) {
+        edgesMesh.rotation.y += 0.002;
+        edgesMesh.rotation.x += 0.001;
+    }
+    
+    renderer.render(scene, camera); 
+} 
+                            renderer.render(scene, camera); }
         drawScene(); animate();
         window.onresize = () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
     </script>
