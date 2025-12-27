@@ -3,503 +3,281 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SSRM | Diamond Mode</title>
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/"
-        }
-      }
-    </script>
+    <title>SSRM | Visual Mode</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body {
-            background: radial-gradient(circle at center, #101018 0%, #000000 100%);
+            background-color: #050505;
             color: #fff;
             font-family: 'Segoe UI', sans-serif;
             margin: 0;
             overflow: hidden;
         }
-
-        /* Кнопка возврата */
-        .mode-switch {
-            position: absolute;
-            top: 30px;
-            left: 30px;
-            z-index: 100;
-            text-decoration: none;
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.3);
-            padding: 12px 25px;
-            border-radius: 30px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(5px);
-            transition: 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .mode-switch:hover { background: #fff; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.5); }
-
+        
         /* Панель управления */
-        #controls-diamond {
+        #controls {
             position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 600px;
-            background: rgba(10, 10, 10, 0.7);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            padding: 30px;
-            border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            top: 0;
+            left: 0;
+            width: 320px;
+            height: 100vh;
+            background: rgba(16, 20, 30, 0.95);
+            border-right: 1px solid #333;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
             z-index: 10;
         }
 
-        .slider-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .slider-row:last-child { margin-bottom: 0; }
-
-        .label {
-            width: 100px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            text-transform: uppercase;
+        h1 {
+            font-size: 1.4rem;
+            background: linear-gradient(90deg, #ff4757, #1e90ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 5px 0;
             letter-spacing: 1px;
-            color: #aaa;
         }
 
+        .subtitle {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        /* Кнопка перехода */
+        .switch-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 25px;
+            background: linear-gradient(45deg, #bd00ff, #00d4ff);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+        }
+        .switch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(189, 0, 255, 0.4);
+        }
+
+        /* Секции ползунков */
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .section h3 { margin: 0 0 10px 0; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .control-group { margin-bottom: 8px; }
+        .label-row { display: flex; justify-content: space-between; font-size: 0.75rem; color: #ccc; margin-bottom: 3px; }
+        
         input[type=range] {
-            flex-grow: 1;
+            width: 100%;
             -webkit-appearance: none;
-            background: rgba(255,255,255,0.1);
+            background: #222;
             height: 4px;
             border-radius: 2px;
             outline: none;
-            margin: 0 15px;
         }
-        
-        /* Стиль ползунков под цвет партнеров */
-        input[type=range].p1-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #ff4757; cursor: pointer; box-shadow: 0 0 10px #ff4757; transition: transform 0.2s; }
-        input[type=range].p2-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #1e90ff; cursor: pointer; box-shadow: 0 0 10px #1e90ff; transition: transform 0.2s; }
-        input[type=range].syn-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #ffa502; cursor: pointer; box-shadow: 0 0 10px #ffa502; transition: transform 0.2s; }
-        
-        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            background: #fff;
+            transition: transform 0.1s;
+        }
+        input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); }
 
-        /* Статус */
-        #status-display {
+        .p1 input::-webkit-slider-thumb { background: #ff4757; }
+        .p2 input::-webkit-slider-thumb { background: #1e90ff; }
+        .syn input::-webkit-slider-thumb { background: #ffa502; }
+
+        /* Диагностика */
+        #diagnosis {
             position: absolute;
-            top: 15%;
-            width: 100%;
-            text-align: center;
-            pointer-events: none;
-            z-index: 5;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.85);
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: right;
+            z-index: 10;
+            min-width: 200px;
         }
-        #status-title {
-            font-size: 3rem;
-            font-weight: 100;
-            letter-spacing: 10px;
-            text-transform: uppercase;
-            color: #fff;
-            text-shadow: 0 0 30px rgba(255,255,255,0.3);
-            transition: all 0.5s ease;
-        }
-        #status-desc {
-            font-size: 0.9rem;
-            color: #888;
-            margin-top: 10px;
-            font-weight: 300;
-            letter-spacing: 2px;
-        }
+        
+        #vol-display { font-size: 2.2rem; font-weight: bold; font-family: 'Courier New', monospace; margin: 5px 0; }
+        .healthy { color: #2ed573; text-shadow: 0 0 10px rgba(46, 213, 115, 0.3); }
+        .warning { color: #ffa502; }
+        .critical { color: #ff4757; animation: blink 1s infinite; }
+        
+        @keyframes blink { 50% { opacity: 0.5; } }
 
-        /* Индикатор громкости/силы (справа от ползунка) */
-        .value-display { width: 30px; text-align: right; color: #fff; font-family: monospace; }
+        #canvas-container { width: 100vw; height: 100vh; }
 
+        @media (max-width: 700px) {
+            #controls { width: 100%; height: 45%; bottom: 0; top: auto; border-right: none; border-top: 1px solid #333; }
+            #canvas-container { height: 55vh; }
+            #diagnosis { top: 10px; right: 10px; padding: 10px; transform: scale(0.8); transform-origin: top right; }
+        }
     </style>
 </head>
 <body>
 
-    <a href="index.html" class="mode-switch">← Expert Mode</a>
+    <div id="controls">
+        <h1>SSRM.ONLINE</h1>
+        <span class="subtitle">Simplified Relationship Model</span>
 
-    <div id="status-display">
-        <div id="status-title">DIAMOND</div>
-        <div id="status-desc">System Stable. Reflection optimal.</div>
+        <a href="index.html" class="switch-btn">🔬 Switch to Expert Mode</a>
+
+        <div class="section p1" style="border-left: 3px solid #ff4757;">
+            <h3 style="color: #ff4757;">Partner 1 (Red)</h3>
+            <div class="control-group">
+                <div class="label-row"><span>Contribution</span><span id="val-p1">0.7</span></div>
+                <input type="range" min="0.1" max="1" step="0.05" value="0.7" oninput="updateModel('p1', this.value)">
+            </div>
+        </div>
+
+        <div class="section p2" style="border-left: 3px solid #1e90ff;">
+            <h3 style="color: #1e90ff;">Partner 2 (Blue)</h3>
+            <div class="control-group">
+                <div class="label-row"><span>Contribution</span><span id="val-p2">0.7</span></div>
+                <input type="range" min="0.1" max="1" step="0.05" value="0.7" oninput="updateModel('p2', this.value)">
+            </div>
+        </div>
+
+        <div class="section syn" style="border-left: 3px solid #ffa502;">
+            <h3 style="color: #ffa502;">Synergy (Yellow)</h3>
+            <div class="control-group">
+                <div class="label-row"><span>Combined Effect</span><span id="val-syn">0.8</span></div>
+                <input type="range" min="0.1" max="1" step="0.05" value="0.8" oninput="updateModel('syn', this.value)">
+            </div>
+        </div>
+        
+        <p style="font-size: 0.7rem; color: #555; text-align: center; margin-top: 10px;">Hai-Guys Lab © 2025</p>
     </div>
 
-    <div id="controls-diamond">
-        <div class="slider-row">
-            <div class="label" style="color:#ff4757;">Partner 1</div>
-            <input type="range" class="p1-slider" min="0.1" max="1.0" step="0.01" value="0.7" id="s1">
-            <div class="value-display" id="v1">70%</div>
-        </div>
-        <div class="slider-row">
-            <div class="label" style="color:#1e90ff;">Partner 2</div>
-            <input type="range" class="p2-slider" min="0.1" max="1.0" step="0.01" value="0.7" id="s2">
-            <div class="value-display" id="v2">70%</div>
-        </div>
-        <div class="slider-row">
-            <div class="label" style="color:#ffa502;">Synergy</div>
-            <input type="range" class="syn-slider" min="0.1" max="1.0" step="0.01" value="0.8" id="s3">
-            <div class="value-display" id="v3">80%</div>
-        </div>
+    <div id="diagnosis">
+        <div style="font-size: 0.7rem; color: #888; letter-spacing: 2px;">RELATIONSHIP VOLUME</div>
+        <div id="vol-display">0.0000</div>
+        <div id="health-status" class="healthy">HEALTHY</div>
     </div>
 
     <div id="canvas-container"></div>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-
-        // === 1. Сцена и Камера ===
+    <script>
+        const state = { p1: 0.7, p2: 0.7, syn: 0.8 };
+        
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050505);
-
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, 2, 7);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(2.8, 2.2, 2.8); 
+        camera.lookAt(0,0,0);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // Bloom эффект для сияния
-        const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.8, 0.4, 0.85);
-        composer.addPass(bloomPass);
+        // Освещение
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const pointLight = new THREE.PointLight(0xffffff, 1); 
+        pointLight.position.set(5,5,5); 
+        scene.add(pointLight);
+        
+        // Сетка и оси (как в index.html)
+        scene.add(new THREE.GridHelper(3, 30, 0x333333, 0x111111));
+        scene.add(new THREE.AxesHelper(1.5));
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.enableZoom = false;
+        let sphereMesh, sphereWireframe;
 
-        // === 2. Свет (Драматичный) ===
-        const ambientLight = new THREE.AmbientLight(0x333333); 
-        scene.add(ambientLight);
-
-        // Главный прожектор сверху
-        const spotLight = new THREE.SpotLight(0xffffff, 15);
-        spotLight.position.set(0, 10, 0);
-        spotLight.angle = Math.PI / 5;
-        spotLight.penumbra = 0.8;
-        spotLight.castShadow = true;
-        scene.add(spotLight);
-
-        // Цветные огни для бликов на гранях
-        const redLight = new THREE.PointLight(0xff0044, 8);
-        redLight.position.set(-5, 2, 5);
-        scene.add(redLight);
-
-        const blueLight = new THREE.PointLight(0x0088ff, 8);
-        blueLight.position.set(5, -2, 5);
-        scene.add(blueLight);
-
-        const goldLight = new THREE.PointLight(0xffaa00, 6);
-        goldLight.position.set(0, 5, -5);
-        scene.add(goldLight);
-
-        // === 3. Создание "Алмаза" (Настоящая огранка) ===
-        const diamondMaterial = new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,
-            metalness: 0.0,
-            roughness: 0.0,
-            transmission: 0.95,
-            thickness: 1.5,
-            ior: 2.417,
-            clearcoat: 1.0,
-            clearcoatRoughness: 0.0,
-            attenuationColor: new THREE.Color(0xffffff),
-            attenuationDistance: 0.5,
-            envMapIntensity: 1.5
-        });
-
-        // Внутреннее ядро с эффектом пульсации
-        const coreMaterial = new THREE.MeshBasicMaterial({
-            color: 0x00ff88,
-            transparent: true,
-            opacity: 0.6,
-            wireframe: false
-        });
-
-        let diamondMesh = null;
-        let coreMesh = null;
-        let haloMesh = null;
-
-        // Создаём настоящий бриллиант с огранкой
-        function createDiamondGeometry(v1, v2, w) {
-            const vertices = [];
-            const indices = [];
-            
-            // Центр
-            const origin = new THREE.Vector3(0, 0, 0);
-            
-            // Основные вершины от векторов
-            const p1 = new THREE.Vector3(v1.x, v1.y, v1.z);
-            const p2 = new THREE.Vector3(v2.x, v2.y, v2.z);
-            const p3 = new THREE.Vector3(w.x, w.y, w.z);
-            
-            // Центр масс верхних точек (корона)
-            const center = new THREE.Vector3()
-                .add(p1)
-                .add(p2)
-                .add(p3)
-                .divideScalar(3);
-            
-            // Apex (верхняя точка бриллианта) - выше центра
-            const apex = center.clone().multiplyScalar(1.4);
-            
-            // Culet (нижняя точка бриллианта) - противоположно центру
-            const culet = center.clone().multiplyScalar(-0.6);
-            
-            // Промежуточные точки для огранки
-            const mid1 = new THREE.Vector3().lerpVectors(origin, p1, 0.5);
-            const mid2 = new THREE.Vector3().lerpVectors(origin, p2, 0.5);
-            const mid3 = new THREE.Vector3().lerpVectors(origin, p3, 0.5);
-            
-            // Собираем все вершины
-            const points = [
-                origin,  // 0
-                p1,      // 1
-                p2,      // 2
-                p3,      // 3
-                apex,    // 4
-                culet,   // 5
-                mid1,    // 6
-                mid2,    // 7
-                mid3     // 8
-            ];
-            
-            // Конвертируем в массив
-            points.forEach(p => vertices.push(p.x, p.y, p.z));
-            
-            // Грани короны (верхняя часть)
-            indices.push(4,1,6, 4,6,7, 4,7,2, 4,2,8, 4,8,3, 4,3,6, 4,6,1);
-            
-            // Грани павильона (нижняя часть)
-            indices.push(5,6,1, 5,7,6, 5,2,7, 5,8,2, 5,3,8, 5,6,3, 5,1,6);
-            
-            // Пояс (соединение короны и павильона)
-            indices.push(1,2,6, 2,7,6, 2,3,7, 3,8,7, 3,1,8, 1,6,8);
-            
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            geometry.setIndex(indices);
-            geometry.computeVertexNormals();
-            
-            return geometry;
+        function calculateVolume(p1, p2, syn) {
+            // Формула основана на произведении всех факторов
+            // Имитирует объём тетраэдра, но упрощённо
+            return (p1 * p2 * syn) / 1.5;
         }
 
-        // Звездная пыль (частицы вокруг) - больше и красивее
-        const particlesGeometry = new THREE.BufferGeometry();
-        const particlesCount = 800;
-        const posArray = new Float32Array(particlesCount * 3);
-        const colorArray = new Float32Array(particlesCount * 3);
-        const sizeArray = new Float32Array(particlesCount);
-        
-        for(let i = 0; i < particlesCount; i++) {
-            posArray[i * 3] = (Math.random() - 0.5) * 20;
-            posArray[i * 3 + 1] = (Math.random() - 0.5) * 20;
-            posArray[i * 3 + 2] = (Math.random() - 0.5) * 20;
-            
-            // Разные цвета для звёзд
-            const color = new THREE.Color();
-            color.setHSL(Math.random() * 0.3 + 0.5, 1.0, 0.5 + Math.random() * 0.3);
-            colorArray[i * 3] = color.r;
-            colorArray[i * 3 + 1] = color.g;
-            colorArray[i * 3 + 2] = color.b;
-            
-            sizeArray[i] = Math.random() * 0.1 + 0.02;
-        }
-        
-        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-        particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
-        particlesGeometry.setAttribute('size', new THREE.BufferAttribute(sizeArray, 1));
-        
-        const particlesMaterial = new THREE.PointsMaterial({
-            size: 0.08,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.8,
-            blending: THREE.AdditiveBlending,
-            sizeAttenuation: true
-        });
-        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
-        scene.add(particlesMesh);
+        function drawScene() {
+            if(sphereMesh) scene.remove(sphereMesh);
+            if(sphereWireframe) scene.remove(sphereWireframe);
 
-        // === 4. Логика Обновления ===
-        function updateGeometry(val1, val2, val3) {
-            if (diamondMesh) scene.remove(diamondMesh);
-            if (coreMesh) scene.remove(coreMesh);
-            if (haloMesh) scene.remove(haloMesh);
+            const vol = calculateVolume(state.p1, state.p2, state.syn);
+            
+            // Радиус шара зависит от объёма (кубический корень для естественного масштабирования)
+            const radius = Math.pow(vol * 3, 1/3) * 1.2;
+            
+            let col = 0x2ed573, stat = "HEALTHY";
+            if(vol < 0.35) { col = 0xffa502; stat = "WARNING"; }
+            if(vol < 0.25) { col = 0xff4757; stat = "CRITICAL"; }
 
-            // Векторы с улучшенной геометрией
-            const v1 = { 
-                x: val1 * 1.2, 
-                y: val1 * 0.3, 
-                z: val1 * 0.4 
-            };
-            
-            const v2 = { 
-                x: val2 * -0.6, 
-                y: val2 * 1.1, 
-                z: val2 * 0.3 
-            };
-            
-            const w = { 
-                x: val3 * 0.2, 
-                y: val3 * 0.3, 
-                z: val3 * 1.6 
-            };
+            document.getElementById('vol-display').innerText = vol.toFixed(4);
+            const sDiv = document.getElementById('health-status');
+            sDiv.innerText = stat; 
+            sDiv.className = stat.toLowerCase();
+            sDiv.style.color = '#' + col.toString(16);
 
-            const geometry = createDiamondGeometry(v1, v2, w);
-
-            // Создаём Алмаз
-            diamondMesh = new THREE.Mesh(geometry, diamondMaterial);
-            diamondMesh.castShadow = true;
-            diamondMesh.receiveShadow = true;
+            // Создаём шар
+            const geometry = new THREE.SphereGeometry(radius, 32, 32);
             
-            // Создаём Ядро (энергетический шар внутри)
-            const coreGeometry = new THREE.IcosahedronGeometry(0.15, 1);
-            coreMesh = new THREE.Mesh(coreGeometry, coreMaterial);
-            diamondMesh.add(coreMesh);
-            
-            // Создаём светящееся гало вокруг бриллианта
-            const haloGeometry = geometry.clone();
-            haloGeometry.scale(1.15, 1.15, 1.15);
-            const haloMaterial = new THREE.MeshBasicMaterial({
-                color: 0x00d4ff,
-                transparent: true,
-                opacity: 0.1,
-                side: THREE.BackSide,
-                blending: THREE.AdditiveBlending
+            // Полупрозрачный материал
+            const material = new THREE.MeshPhongMaterial({ 
+                color: col, 
+                opacity: 0.4, 
+                transparent: true, 
+                shininess: 100 
             });
-            haloMesh = new THREE.Mesh(haloGeometry, haloMaterial);
-            diamondMesh.add(haloMesh);
+            sphereMesh = new THREE.Mesh(geometry, material);
+            scene.add(sphereMesh);
             
-            scene.add(diamondMesh);
-
-            // Расчет объема для статуса
-            const vol = Math.abs(
-                (v1.y*v2.z - v1.z*v2.y)*w.x + 
-                (v1.z*v2.x - v1.x*v2.z)*w.y + 
-                (v1.x*v2.y - v1.y*v2.x)*w.z
-            ) / 6.0;
-
-            updateStatus(vol);
+            // Каркас для чёткости
+            const wireframeGeo = new THREE.EdgesGeometry(geometry);
+            const wireframeMat = new THREE.LineBasicMaterial({ color: col });
+            sphereWireframe = new THREE.LineSegments(wireframeGeo, wireframeMat);
+            scene.add(sphereWireframe);
         }
 
-        function updateStatus(vol) {
-            const title = document.getElementById('status-title');
-            const desc = document.getElementById('status-desc');
+        window.updateModel = (param, value) => {
+            state[param] = parseFloat(value);
+            document.getElementById(`val-${param}`).innerText = parseFloat(value).toFixed(2);
+            drawScene();
+        };
+
+        function animate() { 
+            requestAnimationFrame(animate); 
             
-            // Динамически меняем bloom в зависимости от состояния
-            if (vol > 0.08) {
-                title.innerText = "BRILLIANT";
-                title.style.color = "#00ff88";
-                title.style.textShadow = "0 0 40px rgba(0, 255, 136, 0.8)";
-                desc.innerText = "Relationship is shining bright";
-                coreMaterial.color.setHex(0x00ff88);
-                haloMesh.material.color.setHex(0x00ff88);
-                bloomPass.strength = 1.2;
-            } else if (vol > 0.03) {
-                title.innerText = "STABLE";
-                title.style.color = "#00d4ff";
-                title.style.textShadow = "0 0 40px rgba(0, 212, 255, 0.8)";
-                desc.innerText = "Good balance, potential to grow";
-                coreMaterial.color.setHex(0x00d4ff);
-                haloMesh.material.color.setHex(0x00d4ff);
-                bloomPass.strength = 0.9;
-            } else {
-                title.innerText = "FRAGILE";
-                title.style.color = "#ff4757";
-                title.style.textShadow = "0 0 40px rgba(255, 71, 87, 0.8)";
-                desc.innerText = "Warning: Volume is critically low";
-                coreMaterial.color.setHex(0xff4757);
-                haloMesh.material.color.setHex(0xff4757);
-                bloomPass.strength = 0.6;
+            // Вращаем только шар, не всю сцену
+            if(sphereMesh) {
+                sphereMesh.rotation.y += 0.002;
+                sphereMesh.rotation.x += 0.001;
             }
-        }
-
-        // === 5. Слушатели событий ===
-        const s1 = document.getElementById('s1');
-        const s2 = document.getElementById('s2');
-        const s3 = document.getElementById('s3');
-
-        function onSliderChange() {
-            const v1 = parseFloat(s1.value);
-            const v2 = parseFloat(s2.value);
-            const v3 = parseFloat(s3.value);
-            
-            document.getElementById('v1').innerText = Math.round(v1*100) + '%';
-            document.getElementById('v2').innerText = Math.round(v2*100) + '%';
-            document.getElementById('v3').innerText = Math.round(v3*100) + '%';
-            
-            updateGeometry(v1, v2, v3);
-        }
-
-        s1.addEventListener('input', onSliderChange);
-        s2.addEventListener('input', onSliderChange);
-        s3.addEventListener('input', onSliderChange);
-
-        // Инициализация
-        updateGeometry(0.7, 0.7, 0.8);
-
-        // === 6. Анимация ===
-        let time = 0;
-        function animate() {
-            requestAnimationFrame(animate);
-            time += 0.01;
-            
-            if (diamondMesh) {
-                // Медленное, величественное вращение
-                diamondMesh.rotation.y += 0.003; 
-                diamondMesh.rotation.x = Math.sin(time * 0.5) * 0.15;
-                
-                // Пульсация ядра
-                if (coreMesh) {
-                    const pulse = 1 + Math.sin(time * 2) * 0.1;
-                    coreMesh.scale.set(pulse, pulse, pulse);
-                    coreMesh.rotation.y += 0.02;
-                }
-                
-                // Дыхание гало
-                if (haloMesh) {
-                    const breath = 1.15 + Math.sin(time * 1.5) * 0.05;
-                    haloMesh.scale.set(breath, breath, breath);
-                    haloMesh.material.opacity = 0.1 + Math.sin(time * 2) * 0.05;
-                }
+            if(sphereWireframe) {
+                sphereWireframe.rotation.y += 0.002;
+                sphereWireframe.rotation.x += 0.001;
             }
-
-            // Вращение частиц в разные стороны для глубины
-            particlesMesh.rotation.y -= 0.0005;
-            particlesMesh.rotation.x += 0.0002;
-
-            controls.update();
-            composer.render();
+            
+            renderer.render(scene, camera); 
         }
-
+        
+        drawScene(); 
         animate();
-
-        // Адаптив
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            composer.setSize(window.innerWidth, window.innerHeight);
-        });
+        
+        window.onresize = () => { 
+            camera.aspect = window.innerWidth/window.innerHeight; 
+            camera.updateProjectionMatrix(); 
+            renderer.setSize(window.innerWidth, window.innerHeight); 
+        };
     </script>
 </body>
 </html>
